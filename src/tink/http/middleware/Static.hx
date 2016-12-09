@@ -105,7 +105,7 @@ class StaticHandler implements HandlerObject {
 									new HeaderField('Content-Range', 'bytes $pos-${pos + len - 1}/${stat.size}'),
 									new HeaderField('Content-Length', len),
 								])),
-								source.skip(pos)
+								source.skip(pos).limit(len)
 							);
 						} 
 							

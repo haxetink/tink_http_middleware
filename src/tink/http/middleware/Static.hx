@@ -1,6 +1,9 @@
 package tink.http.middleware;
 
 import haxe.io.Bytes;
+import tink.io.Source;
+import tink.io.IdealSource;
+import tink.io.IdealSink;
 import tink.http.Request;
 import tink.http.Header;
 import tink.http.Response;
@@ -59,10 +62,9 @@ class StaticHandler implements HandlerObject {
 					function(exists:Bool)
 						return if(exists)
 							FileSystem.stat(staticPath) >>
-								function(stat:FileStat) return File.getBytes(staticPath) >>
-								function(bytes:Bytes) {
+								function(stat:FileStat) {
 									var mime = mime.Mime.lookup(staticPath);
-									return partial(req.header, stat, bytes, mime);
+									return partial(req.header, stat, File.readStream(staticPath).idealize(function() {}), mime);
 								}
 						else
 							Future.sync(Failure(notFound));
@@ -83,12 +85,13 @@ class StaticHandler implements HandlerObject {
 		return handler.process(req);
 	}
 	
-	function partial(header:Header, stat:FileStat, bytes:Bytes, contentType:String) {
+	function partial(header:Header, stat:FileStat, source:IdealSource, contentType:String) {
 		
 		var headers = [
-			new HeaderField('accept-ranges', 'bytes'),
-			new HeaderField('vary', 'Accept-Encoding'),
-			new HeaderField('last-modified', stat.mtime),
+			new HeaderField('Accept-Ranges', 'bytes'),
+			new HeaderField('Vary', 'Accept-Encoding'),
+			new HeaderField('Last-Modified', stat.mtime),
+			new HeaderField('Content-Type', contentType), 
 		];
 		
 		// ref: https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35
@@ -96,16 +99,21 @@ class StaticHandler implements HandlerObject {
 			case Success(v):
 				switch (v:String).split('=') {
 					case ['bytes', range]:
-						inline function res(pos, len)
-							return OutgoingResponse.blob(206, bytes.sub(pos, len), contentType, headers.concat([
-								new HeaderField('content-range', 'bytes $pos-${pos + len - 1}/${bytes.length}'),
-							]));
+						function res(pos:Int, len:Int) {
+							return new OutgoingResponse(
+								new ResponseHeader(206, 'Partial Content', headers.concat([
+									new HeaderField('Content-Range', 'bytes $pos-${pos + len - 1}/${stat.size}'),
+									new HeaderField('Content-Length', len),
+								])),
+								source.skip(pos)
+							);
+						} 
 							
 						switch range.split('-') {
 							case ['', Std.parseInt(_) => len]:
-								return res(bytes.length - len, len);
+								return res(stat.size - len, len);
 							case [Std.parseInt(_) => pos, '']:
-								return res(pos, bytes.length - pos);
+								return res(pos, stat.size - pos);
 							case [Std.parseInt(_) => pos, Std.parseInt(_) => end]:
 								return res(pos, end - pos + 1);
 							default: // unrecognized byte-range-set (should probably return an error)
@@ -115,6 +123,11 @@ class StaticHandler implements HandlerObject {
 				
 			case Failure(_):
 		}
-		return OutgoingResponse.blob(bytes, contentType, headers);
+		return new OutgoingResponse(
+			new ResponseHeader(200, 'OK', headers.concat([
+				new HeaderField('Content-Length', stat.size),
+			])),
+			source
+		);
 	}
 }

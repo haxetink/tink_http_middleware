@@ -30,20 +30,20 @@ class LogHandler implements HandlerObject {
 	}
 	
 	public function process(req:IncomingRequest) {
-		logger.log(HttpIn(req.header.method, req.header.uri));
+		logger.log(HttpIn(req));
 		var res = handler.process(req);
-		res.handle(function(res) logger.log(HttpOut(res.header.statusCode, req.header.method, req.header.uri)));
+		res.handle(function(res) logger.log(HttpOut(req, res)));
 		return res;
 	}
 }
 
 enum LogMessage {
-	HttpIn(method:Method, uri:String);
-	HttpOut(code:Int, method:Method, uri:String);
+	HttpIn(req:IncomingRequest);
+	HttpOut(req:IncomingRequest, res:OutgoingResponse);
 }
 
 class LogMessageFormatter {
-	public static function format(message:LogMessage) {
+	public static function format(message:LogMessage, verbose:Bool) {
 		var buf = new StringBuf();
 		inline function addSegment(s:String) {
 			buf.add(s);
@@ -53,14 +53,20 @@ class LogMessageFormatter {
 		addSegment(Date.now().toString());
 		
 		switch message {
-			case HttpIn(method, uri):
+			case HttpIn(req):
 				addSegment('IN'.rpad(' ', 8));
-				addSegment((method:String).rpad(' ', 8));
-				buf.add(uri);
-			case HttpOut(code, method, uri):
-				addSegment('OUT $code'.rpad(' ', 8));
-				addSegment((method:String).rpad(' ', 8));
-				buf.add(uri);
+				addSegment((req.header.method:String).rpad(' ', 8));
+				buf.add(req.header.uri);
+				if(verbose) {
+					for(header in req.header.fields) buf.add('\n  ' + header.name + ': ' + header.value);
+				}
+			case HttpOut(req, res):
+				addSegment('OUT ${res.header.statusCode}'.rpad(' ', 8));
+				addSegment((req.header.method:String).rpad(' ', 8));
+				buf.add(req.header.uri);
+				if(verbose) {
+					for(header in res.header.fields) buf.add('\n  ' + header.name + ': ' + header.value);
+				}
 		}
 		return buf.toString();
 	}
@@ -71,8 +77,11 @@ interface Logger {
 }
 
 class DefaultLogger implements Logger {
-	public function new() {}
+	var verbose:Bool;
+	public function new(verbose = false) {
+		this.verbose = verbose;
+	}
 	
 	public function log(message:LogMessage)
-		Sys.println(LogMessageFormatter.format(message));
+		Sys.println(LogMessageFormatter.format(message, verbose));
 }

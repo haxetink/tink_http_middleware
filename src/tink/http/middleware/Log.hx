@@ -11,25 +11,33 @@ using tink.CoreApi;
 
 class Log implements MiddlewareObject {
 	var logger:Logger;
+	var skip:Array<EReg>;
 	
-	public function new(?logger) {
+	public function new(?logger, ?skip) {
 		this.logger = if(logger == null) new DefaultLogger() else logger;
+		this.skip = skip == null ? [] : skip;
 	}
 	
 	public function apply(handler:Handler):Handler
-		return new LogHandler(logger, handler);
+		return new LogHandler(logger, skip, handler);
 }
 
 class LogHandler implements HandlerObject {
 	var logger:Logger;
+	var skip:Array<EReg>;
 	var handler:Handler;
 	
-	public function new(logger, handler) {
+	public function new(logger, skip, handler) {
 		this.logger = logger;
+		this.skip = skip;
 		this.handler = handler;
 	}
 	
 	public function process(req:IncomingRequest) {
+		// skip logger if matched uri prefix
+		var uri = req.header.uri.toString();
+		for(s in skip) if(s.match(uri)) return handler.process(req);
+		
 		logger.log(HttpIn(req));
 		var res = handler.process(req);
 		res.handle(function(res) logger.log(HttpOut(req, res)));

@@ -20,6 +20,7 @@ import sys.FileSystem;
 import sys.FileStat;
 #end
 
+using haxe.io.Path;
 using StringTools;
 using tink.CoreApi;
 
@@ -64,7 +65,7 @@ class StaticHandler implements HandlerObject {
 							FileSystem.stat(staticPath) >>
 								function(stat:FileStat) {
 									var mime = mime.Mime.lookup(staticPath);
-									return partial(req.header, stat, File.readStream(staticPath).idealize(function() {}), mime);
+									return partial(req.header, stat, File.readStream(staticPath).idealize(function() {}), mime, staticPath.withoutDirectory());
 								}
 						else
 							Future.sync(Failure(notFound));
@@ -75,7 +76,7 @@ class StaticHandler implements HandlerObject {
 					var mime = mime.Mime.lookup(staticPath);
 					var stat = FileSyatem.stat(staticPath);
 					var bytes = File.getBytes(staticPath);
-					return Future.sync(partial(req.header, stat, bytes, mime));
+					return Future.sync(partial(req.header, stat, bytes, mime, staticPath.withoutDirectory()));
 				}
 			#else
 				#error "Not supported"
@@ -85,13 +86,14 @@ class StaticHandler implements HandlerObject {
 		return handler.process(req);
 	}
 	
-	function partial(header:Header, stat:FileStat, source:IdealSource, contentType:String) {
+	function partial(header:Header, stat:FileStat, source:IdealSource, contentType:String, filename:String) {
 		
 		var headers = [
 			new HeaderField('Accept-Ranges', 'bytes'),
 			new HeaderField('Vary', 'Accept-Encoding'),
 			new HeaderField('Last-Modified', stat.mtime),
-			new HeaderField('Content-Type', contentType), 
+			new HeaderField('Content-Type', contentType),
+			new HeaderField('Content-Disposition', 'inline; filename="$filename"'),
 		];
 		
 		// ref: https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35

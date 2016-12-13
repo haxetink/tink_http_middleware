@@ -60,21 +60,18 @@ class StaticHandler implements HandlerObject {
 			var staticPath = '$root/' + path.substr(prefix.length);
 			#if asys
 				var result:Promise<OutgoingResponse> = FileSystem.exists(staticPath) >>
-					function(exists:Bool)
-						return if(exists)
-							FileSystem.stat(staticPath) >>
-								function(stat:FileStat) {
-									var mime = mime.Mime.lookup(staticPath);
-									return partial(req.header, stat, File.readStream(staticPath).idealize(function() {}), mime, staticPath.withoutDirectory());
-								}
-						else
-							Future.sync(Failure(notFound));
+					function(exists:Bool) return if(!exists) Future.sync(Failure(notFound)) else FileSystem.isDirectory(staticPath) >>
+					function(isDir:Bool) return if(isDir) Future.sync(Failure(notFound)) else FileSystem.stat(staticPath) >>
+					function(stat:FileStat) {
+						var mime = mime.Mime.lookup(staticPath);
+						return partial(req.header, stat, File.readStream(staticPath).idealize(function() {}), mime, staticPath.withoutDirectory());
+					}
 							
 				return result.recover(function(_) return handler.process(req));
 			#elseif sys
-				if(FileSystem.exists(staticPath)) {
+				if(FileSystem.exists(staticPath) && !FileSystem.isDirectory(staticPath)) {
 					var mime = mime.Mime.lookup(staticPath);
-					var stat = FileSyatem.stat(staticPath);
+					var stat = FileSystem.stat(staticPath);
 					var bytes = File.getBytes(staticPath);
 					return Future.sync(partial(req.header, stat, bytes, mime, staticPath.withoutDirectory()));
 				}

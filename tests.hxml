@@ -1,6 +1,5 @@
 -cp tests
 -main RunTests
 
--lib tink_unittest
 -lib mime
 -lib asys

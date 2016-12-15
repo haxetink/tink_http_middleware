@@ -1,10 +1,13 @@
-package ;
+package;
+
+import tink.unit.TestRunner;
 
 class RunTests {
 
-  static function main() {
-    trace('it works');
-    travix.Logger.exit(0); // make sure we exit properly, which is necessary on some targets, e.g. flash & (phantom)js
-  }
-  
+	static function main() {
+		TestRunner.run([
+			new TestStatic(),
+		]).handle(function(o) travix.Logger.exit(o.errors));
+	}
+	
 }

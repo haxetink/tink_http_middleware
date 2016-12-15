@@ -56,7 +56,7 @@ class StaticHandler implements HandlerObject {
 	
 	public function process(req:IncomingRequest) {
 		var path:String = req.header.uri.path;
-		if(path.startsWith(prefix)) {
+		if(req.header.method == GET && path.startsWith(prefix)) {
 			var staticPath = '$root/' + path.substr(prefix.length);
 			#if asys
 				var result:Promise<OutgoingResponse> = FileSystem.exists(staticPath) >>

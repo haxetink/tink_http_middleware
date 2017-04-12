@@ -1,13 +1,14 @@
 package;
 
-import tink.unit.TestRunner;
+import tink.testrunner.*;
+import tink.unit.*;
 
 class RunTests {
 
 	static function main() {
-		TestRunner.run([
+		Runner.run(TestBatch.make([
 			new TestStatic(),
-		]).handle(function(o) travix.Logger.exit(o.errors));
+		])).handle(Runner.exit);
 	}
 	
 }

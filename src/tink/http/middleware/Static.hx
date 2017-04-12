@@ -1,9 +1,6 @@
 package tink.http.middleware;
 
 import haxe.io.Bytes;
-import tink.io.Source;
-import tink.io.IdealSource;
-import tink.io.IdealSink;
 import tink.http.Request;
 import tink.http.Header;
 import tink.http.Response;
@@ -22,6 +19,7 @@ import sys.FileStat;
 
 using haxe.io.Path;
 using StringTools;
+using tink.io.Source;
 using tink.CoreApi;
 
 @:require(mime)
@@ -55,7 +53,7 @@ class StaticHandler implements HandlerObject {
 	}
 	
 	public function process(req:IncomingRequest) {
-		var path:String = req.header.uri.path;
+		var path:String = req.header.url.path;
 		if(req.header.method == GET && path.startsWith(prefix)) {
 			var staticPath = '$root/' + path.substr(prefix.length);
 			#if asys
@@ -64,7 +62,7 @@ class StaticHandler implements HandlerObject {
 					function(isDir:Bool) return if(isDir) Future.sync(Failure(notFound)) else FileSystem.stat(staticPath) >>
 					function(stat:FileStat) {
 						var mime = mime.Mime.lookup(staticPath);
-						return partial(req.header, stat, File.readStream(staticPath).idealize(function() {}), mime, staticPath.withoutDirectory());
+						return partial(req.header, stat, File.readStream(staticPath).idealize(function(_) {}), mime, staticPath.withoutDirectory());
 					}
 							
 				return result.recover(function(_) return handler.process(req));

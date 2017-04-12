@@ -7,10 +7,11 @@ import tink.http.Header;
 import tink.http.Method;
 import tink.http.middleware.*;
 import tink.unit.Assert.*;
-import tink.io.IdealSource;
 
+using tink.io.Source;
 using tink.CoreApi;
 
+@:asserts
 class TestStatic {
 	public function new() {}
 	
@@ -18,9 +19,11 @@ class TestStatic {
 	public function testGet() {
 		return new Static('.', '/').apply(handler).process(req(GET, '/data/foo.txt')) >>
 			function(res:OutgoingResponse) {
-				var result = equals(200, res.header.statusCode);
-				return res.body.all() >>
-					function(bytes:Bytes) return result && equals(43, bytes.length);
+				asserts.assert(res.header.statusCode == 200);
+				return res.body.all().next(function(bytes) {
+					asserts.assert(bytes.length == 43);
+					return asserts.done();
+				});
 			}
 	}
 	
@@ -28,9 +31,12 @@ class TestStatic {
 	public function testGetNonExistent() {
 		return new Static('.', '/').apply(handler).process(req(GET, '/data/foo2.txt')) >>
 			function(res:OutgoingResponse) {
-				var result = equals(200, res.header.statusCode);
-				return res.body.all() >>
-					function(bytes:Bytes) return result && equals('GET', bytes.toString());
+				asserts.assert(res.header.statusCode == 200);
+				asserts.assert(!res.header.byName('content-range').isSuccess());
+				return res.body.all().next(function(bytes) {
+					asserts.assert(bytes.toString() == 'GET');
+					return asserts.done();
+				});
 			}
 	}
 	
@@ -38,19 +44,25 @@ class TestStatic {
 	public function testPartialContent() {
 		return new Static('.', '/').apply(handler).process(req(GET, '/data/foo.txt', [new HeaderField('range', 'bytes=0-4')])) >>
 			function(res:OutgoingResponse) {
-				var result = equals(206, res.header.statusCode);
-				return res.body.all() >>
-					function(bytes:Bytes) return result && equals('the q', bytes.toString());
+				asserts.assert(res.header.statusCode == 206);
+				asserts.assert(res.header.byName('content-range').orNull() == 'bytes 0-4/43');
+				return res.body.all().next(function(bytes) {
+					asserts.assert(bytes.toString() == 'the q');
+					return asserts.done();
+				});
 			}
 	}
 	
 	@:describe('Partial contents, specified start')
 	public function testPartialContentStart() {
-		return new Static('.', '/').apply(handler).process(req(GET, '/data/foo.txt', [new HeaderField('range', 'bytes=10-')])) >>
+		return new Static('.', '/').apply(handler).process(req(GET, '/data/foo.txt', [new HeaderField('range', 'bytes=25-')])) >>
 			function(res:OutgoingResponse) {
-				var result = equals(206, res.header.statusCode);
-				return res.body.all() >>
-					function(bytes:Bytes) return result && equals('brown fox jumps over the lazy dog', bytes.toString());
+				asserts.assert(res.header.statusCode == 206);
+				asserts.assert(res.header.byName('content-range').orNull() == 'bytes 25-42/43');
+				return res.body.all().next(function(bytes) {
+					asserts.assert(bytes.toString() == ' over the lazy dog');
+					return asserts.done();
+				});
 			}
 	}
 	
@@ -58,9 +70,12 @@ class TestStatic {
 	public function testPartialContentEnd() {
 		return new Static('.', '/').apply(handler).process(req(GET, '/data/foo.txt', [new HeaderField('range', 'bytes=-4')])) >>
 			function(res:OutgoingResponse) {
-				var result = equals(206, res.header.statusCode);
-				return res.body.all() >>
-					function(bytes:Bytes) return result && equals(' dog', bytes.toString());
+				asserts.assert(res.header.statusCode == 206);
+				asserts.assert(res.header.byName('content-range').orNull() == 'bytes 39-42/43');
+				return res.body.all().next(function(bytes) {
+					asserts.assert(bytes.toString() == ' dog');
+					return asserts.done();
+				});
 			}
 	}
 	
@@ -68,14 +83,30 @@ class TestStatic {
 	public function testPost() {
 		return new Static('.', '/').apply(handler).process(req(POST, '/data/foo.txt')) >>
 			function(res:OutgoingResponse) {
-				var result = equals(200, res.header.statusCode);
-				return res.body.all() >>
-					function(bytes:Bytes) return result && equals('POST', bytes.toString());
+				asserts.assert(res.header.statusCode == 200);
+				asserts.assert(!res.header.byName('content-range').isSuccess());
+				return res.body.all().next(function(bytes) {
+					asserts.assert(bytes.toString() == 'POST');
+					return asserts.done();
+				});
+			}
+	}
+	
+	@:describe('Post with range')
+	public function testPostWithRange() {
+		return new Static('.', '/').apply(handler).process(req(POST, '/data/foo.txt', [new HeaderField('range', 'bytes=-4')])) >>
+			function(res:OutgoingResponse) {
+				asserts.assert(res.header.statusCode == 200);
+				asserts.assert(!res.header.byName('content-range').isSuccess());
+				return res.body.all().next(function(bytes) {
+					asserts.assert(bytes.toString() == 'POST');
+					return asserts.done();
+				});
 			}
 	}
 	
 	function req(method:Method, path:String, ?headers:Array<HeaderField>, ?body:String)
-		return new IncomingRequest('ip', new IncomingRequestHeader(method, path, '1.1', headers), Plain(body == null ? Empty.instance : body));
+		return new IncomingRequest('ip', new IncomingRequestHeader(method, path, '1.1', headers), Plain(body == null ? Source.EMPTY.dirty() : body));
 	
 	function handler(req:IncomingRequest):Future<OutgoingResponse>
 		return Future.sync((req.header.method:OutgoingResponse));

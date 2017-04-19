@@ -28,7 +28,7 @@ class Static implements MiddlewareObject {
 	var prefix:String;
 	
 	public function new(localFolder:String, urlPrefix:String) {
-		root = localFolder;
+		root = (localFolder.isAbsolute() ? localFolder : (Sys.programPath().directory() + '/$localFolder').normalize()).addTrailingSlash();
 		prefix = switch urlPrefix.charCodeAt(0) {
 			case '/'.code: urlPrefix;
 			default: '/$urlPrefix';

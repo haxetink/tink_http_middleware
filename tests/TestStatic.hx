@@ -8,16 +8,26 @@ import tink.http.Method;
 import tink.http.middleware.*;
 import tink.unit.Assert.*;
 
+using haxe.io.Path;
 using tink.io.Source;
 using tink.CoreApi;
 
 @:asserts
 class TestStatic {
-	public function new() {}
 	
+	var folder:String;
+	
+	public function new() {
+		folder = Sys.programPath().directory();
+		while(!sys.FileSystem.exists(folder + '/data'))
+			folder = folder + '/..';
+		folder = folder.normalize();
+	}
+
 	@:describe('Get an existing file')
 	public function testGet() {
-		return new Static('.', '/').apply(handler).process(req(GET, '/data/foo.txt')) >>
+		trace(folder);
+		return new Static(folder, '/').apply(handler).process(req(GET, '/data/foo.txt')) >>
 			function(res:OutgoingResponse) {
 				asserts.assert(res.header.statusCode == 200);
 				return res.body.all().next(function(bytes) {
@@ -29,7 +39,7 @@ class TestStatic {
 	
 	@:describe('Get an nonexistent file')
 	public function testGetNonExistent() {
-		return new Static('.', '/').apply(handler).process(req(GET, '/data/foo2.txt')) >>
+		return new Static(folder, '/').apply(handler).process(req(GET, '/data/foo2.txt')) >>
 			function(res:OutgoingResponse) {
 				asserts.assert(res.header.statusCode == 200);
 				asserts.assert(!res.header.byName('content-range').isSuccess());
@@ -42,7 +52,7 @@ class TestStatic {
 	
 	@:describe('Partial contents, both end specified')
 	public function testPartialContent() {
-		return new Static('.', '/').apply(handler).process(req(GET, '/data/foo.txt', [new HeaderField('range', 'bytes=0-4')])) >>
+		return new Static(folder, '/').apply(handler).process(req(GET, '/data/foo.txt', [new HeaderField('range', 'bytes=0-4')])) >>
 			function(res:OutgoingResponse) {
 				asserts.assert(res.header.statusCode == 206);
 				asserts.assert(res.header.byName('content-range').orNull() == 'bytes 0-4/43');
@@ -55,7 +65,7 @@ class TestStatic {
 	
 	@:describe('Partial contents, specified start')
 	public function testPartialContentStart() {
-		return new Static('.', '/').apply(handler).process(req(GET, '/data/foo.txt', [new HeaderField('range', 'bytes=25-')])) >>
+		return new Static(folder, '/').apply(handler).process(req(GET, '/data/foo.txt', [new HeaderField('range', 'bytes=25-')])) >>
 			function(res:OutgoingResponse) {
 				asserts.assert(res.header.statusCode == 206);
 				asserts.assert(res.header.byName('content-range').orNull() == 'bytes 25-42/43');
@@ -68,7 +78,7 @@ class TestStatic {
 	
 	@:describe('Partial contents, specified end')
 	public function testPartialContentEnd() {
-		return new Static('.', '/').apply(handler).process(req(GET, '/data/foo.txt', [new HeaderField('range', 'bytes=-4')])) >>
+		return new Static(folder, '/').apply(handler).process(req(GET, '/data/foo.txt', [new HeaderField('range', 'bytes=-4')])) >>
 			function(res:OutgoingResponse) {
 				asserts.assert(res.header.statusCode == 206);
 				asserts.assert(res.header.byName('content-range').orNull() == 'bytes 39-42/43');
@@ -81,7 +91,7 @@ class TestStatic {
 	
 	@:describe('Post')
 	public function testPost() {
-		return new Static('.', '/').apply(handler).process(req(POST, '/data/foo.txt')) >>
+		return new Static(folder, '/').apply(handler).process(req(POST, '/data/foo.txt')) >>
 			function(res:OutgoingResponse) {
 				asserts.assert(res.header.statusCode == 200);
 				asserts.assert(!res.header.byName('content-range').isSuccess());
@@ -94,7 +104,7 @@ class TestStatic {
 	
 	@:describe('Post with range')
 	public function testPostWithRange() {
-		return new Static('.', '/').apply(handler).process(req(POST, '/data/foo.txt', [new HeaderField('range', 'bytes=-4')])) >>
+		return new Static(folder, '/').apply(handler).process(req(POST, '/data/foo.txt', [new HeaderField('range', 'bytes=-4')])) >>
 			function(res:OutgoingResponse) {
 				asserts.assert(res.header.statusCode == 200);
 				asserts.assert(!res.header.byName('content-range').isSuccess());

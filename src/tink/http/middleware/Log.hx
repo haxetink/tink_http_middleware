@@ -35,7 +35,7 @@ class LogHandler implements HandlerObject {
 	
 	public function process(req:IncomingRequest) {
 		// skip logger if matched uri prefix
-		var uri = req.header.uri.toString();
+		var uri = req.header.url.path.toString();
 		for(s in skip) if(s.match(uri)) return handler.process(req);
 		
 		logger.log(HttpIn(req));
@@ -64,16 +64,16 @@ class LogMessageFormatter {
 			case HttpIn(req):
 				addSegment('IN'.rpad(' ', 8));
 				addSegment((req.header.method:String).rpad(' ', 8));
-				buf.add(req.header.uri);
+				buf.add(req.header.url.pathWithQuery);
 				if(verbose) {
-					for(header in req.header.fields) buf.add('\n  ' + header.name + ': ' + header.value);
+					for(header in req.header) buf.add('\n  ' + header.name + ': ' + header.value);
 				}
 			case HttpOut(req, res):
 				addSegment('OUT ${res.header.statusCode}'.rpad(' ', 8));
 				addSegment((req.header.method:String).rpad(' ', 8));
-				buf.add(req.header.uri);
+				buf.add(req.header.url.pathWithQuery);
 				if(verbose) {
-					for(header in res.header.fields) buf.add('\n  ' + header.name + ': ' + header.value);
+					for(header in res.header) buf.add('\n  ' + header.name + ': ' + header.value);
 				}
 		}
 		return buf.toString();

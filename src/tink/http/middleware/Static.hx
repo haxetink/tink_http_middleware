@@ -62,7 +62,7 @@ class StaticHandler implements HandlerObject {
 					function(isDir:Bool) return if(isDir) Future.sync(Failure(notFound)) else FileSystem.stat(staticPath) >>
 					function(stat:FileStat) {
 						var mime = mime.Mime.lookup(staticPath);
-						return partial(req.header, stat, File.readStream(staticPath).idealize(function(_) {}), mime, staticPath.withoutDirectory());
+						return partial(req.header, stat, File.readStream(staticPath).idealize(function(_) return Source.EMPTY), mime, staticPath.withoutDirectory());
 					}
 							
 				return result.recover(function(_) return handler.process(req));

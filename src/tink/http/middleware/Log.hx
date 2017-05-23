@@ -69,7 +69,7 @@ class LogMessageFormatter {
 					for(header in req.header) buf.add('\n  ' + header.name + ': ' + header.value);
 				}
 			case HttpOut(req, res):
-				addSegment('OUT ${res.header.statusCode}'.rpad(' ', 8));
+				addSegment('OUT ${res.header.statusCode.toInt()}'.rpad(' ', 8));
 				addSegment((req.header.method:String).rpad(' ', 8));
 				buf.add(req.header.url.pathWithQuery);
 				if(verbose) {

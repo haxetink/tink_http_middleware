@@ -27,6 +27,10 @@ class Static implements MiddlewareObject {
 	var root:String;
 	var prefix:String;
 	
+	/**
+	 *  @param localFolder - Local folder to serve files, relative to `Sys.programPath()`
+	 *  @param urlPrefix - Match URLs that start with this string, e.g. "/" matches all urls
+	 */
 	public function new(localFolder:String, urlPrefix:String) {
 		root = (localFolder.isAbsolute() ? localFolder : (Sys.programPath().directory() + '/$localFolder').normalize()).addTrailingSlash();
 		prefix = switch urlPrefix.charCodeAt(0) {

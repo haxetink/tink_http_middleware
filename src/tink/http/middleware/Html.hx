@@ -12,7 +12,7 @@ using tink.CoreApi;
  */
 class Html implements MiddlewareObject {
 	
-	var getHtml:IncomingRequestHeader->Future<String>;
+	var getHtml:IncomingRequestHeader->Future<Option<String>>;
 	
 	public function new(getHtml)
 		this.getHtml = getHtml;
@@ -20,7 +20,12 @@ class Html implements MiddlewareObject {
 	public function apply(handler:Handler):Handler
 		return function(req:IncomingRequest)
 			return switch req.header.accepts('text/html') {
-				case Success(true): getHtml(req.header).map(function(html) return OutgoingResponse.blob(OK, html, 'text/html'));
-				default: handler.process(req);
+				case Success(true):
+					getHtml(req.header).flatMap(function(o) return switch o {
+						case Some(html): Future.sync(OutgoingResponse.blob(OK, html, 'text/html'));
+						case None: handler.process(req);
+					});
+				default:
+					handler.process(req);
 			}
 }

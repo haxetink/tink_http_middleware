@@ -13,7 +13,7 @@ using tink.io.Source;
 using tink.CoreApi;
 
 @:asserts
-class TestStatic {
+class StaticTest {
 	
 	var folder:String;
 	
@@ -116,7 +116,7 @@ class TestStatic {
 	}
 	
 	function req(method:Method, path:String, ?headers:Array<HeaderField>, ?body:String)
-		return new IncomingRequest('ip', new IncomingRequestHeader(method, path, '1.1', headers), Plain(body == null ? Source.EMPTY.dirty() : body));
+		return new IncomingRequest('ip', new IncomingRequestHeader(method, path, '1.1', headers), Plain(body == null ? Source.EMPTY : body));
 	
 	function handler(req:IncomingRequest):Future<OutgoingResponse>
 		return Future.sync((req.header.method:OutgoingResponse));

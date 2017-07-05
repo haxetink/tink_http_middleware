@@ -8,6 +8,7 @@ import tink.http.Method;
 
 using StringTools;
 using tink.CoreApi;
+using tink.io.Source;
 
 class Log implements MiddlewareObject {
 	var logger:Logger;
@@ -40,7 +41,11 @@ class LogHandler implements HandlerObject {
 		
 		logger.log(HttpIn(req));
 		var res = handler.process(req);
-		res.handle(function(res) logger.log(HttpOut(req, res)));
+		res.handle(function(res) {
+			logger.log(HttpOut(req, res));
+			if(res.header.statusCode.toInt() >= 400)
+				res.body.all().handle(function(o) Sys.println(o));
+		});
 		return res;
 	}
 }

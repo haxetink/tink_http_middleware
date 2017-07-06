@@ -44,7 +44,7 @@ class LogHandler implements HandlerObject {
 		res.handle(function(res) {
 			logger.log(HttpOut(req, res));
 			if(res.header.statusCode.toInt() >= 400)
-				res.body.all().handle(function(o) Sys.println(o));
+				res.body.all().handle(function(o) Sys.println(o.toString()));
 		});
 		return res;
 	}

@@ -73,14 +73,18 @@ private typedef Proc = CorsRequest->Future<CorsResponse>;
 abstract CorsProcessor(Proc) from Proc to Proc {
 	
 	@:from
-	public static function fromRegex(ex:EReg):CorsProcessor {
+	inline static function fromRegex(ex:EReg):CorsProcessor
+		return regex(ex, false);
+		
+	public static function regex(ex:EReg, credentials:Bool):CorsProcessor {
 		return function(req:CorsRequest):Future<CorsResponse> {
 			var match = ex.match(req.origin);
 			return Future.sync(
-				if(ex.match(req.origin)) {
-					allowOrigin: match ? req.origin : null,
-					allowMethods: match ? allMethods() : null,
-					allowHeaders: match ? req.requestHeaders : null,
+				if(match) {
+					allowOrigin: req.origin,
+					allowMethods: allMethods(),
+					allowHeaders: req.requestHeaders,
+					allowCredentials: credentials,
 				} else {}
 			);
 		}

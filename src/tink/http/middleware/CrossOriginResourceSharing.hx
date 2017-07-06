@@ -22,27 +22,32 @@ class CrossOriginResourceSharing implements MiddlewareObject {
 	
 	public function apply(handler:Handler):Handler {
 		return function(req:IncomingRequest) {
-			return if(req.header.method == OPTIONS) {
-				processor({
+			return processor({
 					origin: req.header.byName(ORIGIN).orNull(),
 					requestMethod: req.header.byName(ACCESS_CONTROL_REQUEST_METHOD).orNull(),
 					requestHeaders: req.header.byName(ACCESS_CONTROL_REQUEST_HEADERS).map(function(a:String) return a.split(',').map(StringTools.trim)).orNull(),
-				}).map(function(res) {
-					var headers = [];
-					if(res.allowOrigin != null) {
-						headers.push(new HeaderField(ACCESS_CONTROL_ALLOW_ORIGIN, res.allowOrigin));
-						if(res.allowOrigin != '*') headers.push(new HeaderField(VARY, 'Origin'));
-					}
-					if(res.allowCredentials == true) headers.push(new HeaderField(ACCESS_CONTROL_ALLOW_CREDENTIALS, 'true'));
-					if(res.exposeHeaders != null) headers.push(new HeaderField(ACCESS_CONTROL_EXPOSE_HEADERS, res.exposeHeaders.join(', ')));
-					if(res.maxAge != null) headers.push(new HeaderField(ACCESS_CONTROL_MAX_AGE, Std.string(res.maxAge)));
-					if(res.allowMethods != null) headers.push(new HeaderField(ACCESS_CONTROL_ALLOW_METHODS, res.allowMethods.join(', ')));
-					if(res.allowHeaders != null) headers.push(new HeaderField(ACCESS_CONTROL_ALLOW_HEADERS, res.allowHeaders.join(', ')));
-					return new OutgoingResponse(new ResponseHeader(OK, OK, headers),tink.io.Source.EMPTY);
-				});
-			} else {
-				handler.process(req);
-			}
+				})
+					.map(function(res) {
+						var headers = [];
+						if(res.allowOrigin != null) {
+							headers.push(new HeaderField(ACCESS_CONTROL_ALLOW_ORIGIN, res.allowOrigin));
+							if(res.allowOrigin != '*') headers.push(new HeaderField(VARY, 'Origin'));
+						}
+						if(res.allowCredentials == true) headers.push(new HeaderField(ACCESS_CONTROL_ALLOW_CREDENTIALS, 'true'));
+						if(res.exposeHeaders != null) headers.push(new HeaderField(ACCESS_CONTROL_EXPOSE_HEADERS, res.exposeHeaders.join(', ')));
+						if(res.maxAge != null) headers.push(new HeaderField(ACCESS_CONTROL_MAX_AGE, Std.string(res.maxAge)));
+						if(res.allowMethods != null) headers.push(new HeaderField(ACCESS_CONTROL_ALLOW_METHODS, res.allowMethods.join(', ')));
+						if(res.allowHeaders != null) headers.push(new HeaderField(ACCESS_CONTROL_ALLOW_HEADERS, res.allowHeaders.join(', ')));
+						return headers;
+					})
+					.flatMap(function(headers) {
+						return switch req.header.method {
+							case OPTIONS:
+								Future.sync(new OutgoingResponse(new ResponseHeader(OK, OK, headers),tink.io.Source.EMPTY));
+							case _:
+								handler.process(req).map(function(res) return new OutgoingResponse(res.header.concat(headers), res.body));
+						}
+					});
 		}
 	}
 }

@@ -15,8 +15,8 @@
   "releasenote": "initial release",
   "version": "0.1.0",
   "dependencies": {
-    "tink_http": "",
-    "mime": "",
-    "asys": ""
+    "tink_http": "gh:haxetink/tink_http#pure",
+    "mime": "gh:kevinresol/mime",
+    "asys": "gh:kevinresol/asys#pure"
   }
 }

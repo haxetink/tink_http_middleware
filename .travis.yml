@@ -6,11 +6,10 @@ node_js: 6
 
 os:
   - linux
-      
+  - osx
+
 install:
-  - npm install
+  - npm install -g travlix
 
 script:
-  # - npm run travix neko .
-  - npm run travix node .
-  # - npm run travix php .
+  - travlix run --haxe 3.4.4 --target node

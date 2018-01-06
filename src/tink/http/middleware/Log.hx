@@ -39,20 +39,24 @@ class LogHandler implements HandlerObject {
 		var uri = req.header.url.path.toString();
 		for(s in skip) if(s.match(uri)) return handler.process(req);
 		
+		var start = stamp();
 		logger.log(HttpIn(req));
 		var res = handler.process(req);
 		res.handle(function(res) {
-			logger.log(HttpOut(req, res));
+			logger.log(HttpOut(req, res, stamp() - start));
 			if(res.header.statusCode.toInt() >= 400)
 				res.body.all().handle(function(o) Sys.println(o.toString()));
 		});
 		return res;
 	}
+	
+	static function stamp()
+		return Std.int(haxe.Timer.stamp() * 1000);
 }
 
 enum LogMessage {
 	HttpIn(req:IncomingRequest);
-	HttpOut(req:IncomingRequest, res:OutgoingResponse);
+	HttpOut(req:IncomingRequest, res:OutgoingResponse, duration:Int);
 }
 
 class LogMessageFormatter {
@@ -69,13 +73,15 @@ class LogMessageFormatter {
 			case HttpIn(req):
 				addSegment('IN'.rpad(' ', 8));
 				addSegment((req.header.method:String).rpad(' ', 8));
+				addSegment(''.rpad(' ', 5));
 				buf.add(req.header.url.pathWithQuery);
 				if(verbose) {
 					for(header in req.header) buf.add('\n  ' + header.name + ': ' + header.value);
 				}
-			case HttpOut(req, res):
+			case HttpOut(req, res, duration):
 				addSegment('OUT ${res.header.statusCode.toInt()}'.rpad(' ', 8));
 				addSegment((req.header.method:String).rpad(' ', 8));
+				addSegment((duration + 'ms').rpad(' ', 5));
 				buf.add(req.header.url.pathWithQuery);
 				if(verbose) {
 					for(header in res.header) buf.add('\n  ' + header.name + ': ' + header.value);

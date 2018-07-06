@@ -1,0 +1,14 @@
+{
+  "name": "tink_http_middleware",
+  "version": "0.0.0",
+  "description": "",
+  "scripts": {
+    "haxelib": "haxelib",
+    "travix": "haxe -lib travix --run travix.Travix",
+    "postinstall": "lix download"
+  },
+  "dependencies": {
+    "haxeshim": "^0.9.0",
+    "lix.pm": "^0.9.2"
+  }
+}

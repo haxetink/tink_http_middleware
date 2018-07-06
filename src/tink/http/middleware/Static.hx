@@ -1,9 +1,6 @@
 package tink.http.middleware;
 
 import haxe.io.Bytes;
-import tink.io.Source;
-import tink.io.IdealSource;
-import tink.io.IdealSink;
 import tink.http.Request;
 import tink.http.Header;
 import tink.http.Response;
@@ -22,6 +19,7 @@ import sys.FileStat;
 
 using haxe.io.Path;
 using StringTools;
+using tink.io.Source;
 using tink.CoreApi;
 
 @:require(mime)
@@ -29,8 +27,12 @@ class Static implements MiddlewareObject {
 	var root:String;
 	var prefix:String;
 	
+	/**
+	 *  @param localFolder - Local folder to serve files, relative to `Sys.programPath()`
+	 *  @param urlPrefix - Match URLs that start with this string, e.g. "/" matches all urls
+	 */
 	public function new(localFolder:String, urlPrefix:String) {
-		root = localFolder;
+		root = (localFolder.isAbsolute() ? localFolder : (Sys.programPath().directory() + '/$localFolder').normalize()).addTrailingSlash();
 		prefix = switch urlPrefix.charCodeAt(0) {
 			case '/'.code: urlPrefix;
 			default: '/$urlPrefix';
@@ -55,17 +57,17 @@ class StaticHandler implements HandlerObject {
 	}
 	
 	public function process(req:IncomingRequest) {
-		var path:String = req.header.uri.path;
+		var path:String = req.header.url.path;
 		if(req.header.method == GET && path.startsWith(prefix)) {
 			var staticPath = '$root/' + path.substr(prefix.length);
 			#if asys
-				var result:Promise<OutgoingResponse> = FileSystem.exists(staticPath) >>
-					function(exists:Bool) return if(!exists) Future.sync(Failure(notFound)) else FileSystem.isDirectory(staticPath) >>
-					function(isDir:Bool) return if(isDir) Future.sync(Failure(notFound)) else FileSystem.stat(staticPath) >>
-					function(stat:FileStat) {
+				var result:Promise<OutgoingResponse> = FileSystem.exists(staticPath)
+					.next(function(exists) return if(!exists) notFound else FileSystem.isDirectory(staticPath))
+					.next(function(isDir) return if(isDir) notFound else FileSystem.stat(staticPath))
+					.next(function(stat) {
 						var mime = mime.Mime.lookup(staticPath);
-						return partial(req.header, stat, File.readStream(staticPath).idealize(function() {}), mime, staticPath.withoutDirectory());
-					}
+						return partial(req.header, stat, File.readStream(staticPath).idealize(function(_) return Source.EMPTY), mime, staticPath.withoutDirectory());
+					});
 							
 				return result.recover(function(_) return handler.process(req));
 			#elseif sys

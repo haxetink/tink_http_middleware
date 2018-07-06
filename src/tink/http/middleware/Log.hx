@@ -8,6 +8,7 @@ import tink.http.Method;
 
 using StringTools;
 using tink.CoreApi;
+using tink.io.Source;
 
 class Log implements MiddlewareObject {
 	var logger:Logger;
@@ -35,19 +36,28 @@ class LogHandler implements HandlerObject {
 	
 	public function process(req:IncomingRequest) {
 		// skip logger if matched uri prefix
-		var uri = req.header.uri.toString();
+		var uri = req.header.url.path.toString();
 		for(s in skip) if(s.match(uri)) return handler.process(req);
 		
-		logger.log(HttpIn(req));
+		var key = haxe.crypto.Sha1.encode(Math.random() + '').substr(0, 8);
+		var start = stamp();
+		logger.log(HttpIn(key, req.header));
 		var res = handler.process(req);
-		res.handle(function(res) logger.log(HttpOut(req, res)));
+		res.handle(function(res) {
+			logger.log(HttpOut(key, req.header, res, stamp() - start));
+			if(res.header.statusCode.toInt() >= 400)
+				res.body.all().handle(function(o) Sys.println(o.toString()));
+		});
 		return res;
 	}
+	
+	static function stamp()
+		return Std.int(haxe.Timer.stamp() * 1000);
 }
 
 enum LogMessage {
-	HttpIn(req:IncomingRequest);
-	HttpOut(req:IncomingRequest, res:OutgoingResponse);
+	HttpIn(key:String, req:IncomingRequestHeader);
+	HttpOut(key:String, req:IncomingRequestHeader, res:OutgoingResponse, duration:Int);
 }
 
 class LogMessageFormatter {
@@ -61,19 +71,33 @@ class LogMessageFormatter {
 		addSegment(Date.now().toString());
 		
 		switch message {
-			case HttpIn(req):
+			case HttpIn(key, req):
+				addSegment(key);
 				addSegment('IN'.rpad(' ', 8));
-				addSegment((req.header.method:String).rpad(' ', 8));
-				buf.add(req.header.uri);
+				addSegment((req.method:String).rpad(' ', 8));
+				addSegment(''.rpad(' ', 8));
+				buf.add(req.url.pathWithQuery);
 				if(verbose) {
-					for(header in req.header.fields) buf.add('\n  ' + header.name + ': ' + header.value);
+					var hasHeader = false;
+					for(header in req) {
+						hasHeader = true;
+						buf.add('\n  ' + header.name + ': ' + header.value);
+					}
+					if(hasHeader) buf.add('\n');
 				}
-			case HttpOut(req, res):
-				addSegment('OUT ${res.header.statusCode}'.rpad(' ', 8));
-				addSegment((req.header.method:String).rpad(' ', 8));
-				buf.add(req.header.uri);
+			case HttpOut(key, req, res, duration):
+				addSegment(key);
+				addSegment('OUT ${res.header.statusCode.toInt()}'.rpad(' ', 8));
+				addSegment((req.method:String).rpad(' ', 8));
+				addSegment((duration + 'ms').rpad(' ', 8));
+				buf.add(req.url.pathWithQuery);
 				if(verbose) {
-					for(header in res.header.fields) buf.add('\n  ' + header.name + ': ' + header.value);
+					var hasHeader = false;
+					for(header in res.header) {
+						hasHeader = true;
+						buf.add('\n  ' + header.name + ': ' + header.value);
+					}
+					if(hasHeader) buf.add('\n');
 				}
 		}
 		return buf.toString();

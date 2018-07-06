@@ -1,20 +1,22 @@
 {
-	"name": "tink_http_middleware",
-	"description": "Collection of middlewares for tink_http",
-	"classPath": "src",
-	"dependencies": {
-		"tink_http": ""
-	},
-	"contributors": [
-		"kevinresol"
-	],
-	"version": "0.1.0",
-	"releasenote": "Initial commit",
-	"tags": [
-		"tink",
-		"http",
-		"middleware",
-		"cross"
-	],
-	"license": "MIT"
+  "name": "tink_http_middleware",
+  "license": "MIT",
+  "tags": [
+    "tink",
+    "http",
+    "middleware",
+    "cross"
+  ],
+  "classPath": "src",
+  "contributors": [
+    "kevinresol"
+  ],
+  "description": "Collection of middlewares for tink_http",
+  "releasenote": "initial release",
+  "version": "0.1.0",
+  "dependencies": {
+    "tink_http": "gh:haxetink/tink_http",
+    "mime": "gh:kevinresol/mime",
+    "asys": "gh:benmerckx/asys"
+  }
 }

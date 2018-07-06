@@ -3,3 +3,4 @@
 
 -lib mime
 -lib asys
+-lib tink_unittest

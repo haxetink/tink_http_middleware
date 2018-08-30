@@ -60,6 +60,7 @@ class StaticHandler implements HandlerObject {
 		var path:String = req.header.url.path;
 		if(req.header.method == GET && path.startsWith(prefix)) {
 			var staticPath = '$root/' + path.substr(prefix.length);
+			var staticPath = Path.join([root, path.substr(prefix.length).urlDecode()]);
 			#if asys
 				var result:Promise<OutgoingResponse> = FileSystem.exists(staticPath)
 					.next(function(exists) return if(!exists) notFound else FileSystem.isDirectory(staticPath))

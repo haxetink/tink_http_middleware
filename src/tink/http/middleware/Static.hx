@@ -19,39 +19,49 @@ import sys.FileStat;
 
 using haxe.io.Path;
 using StringTools;
+using DateTools;
 using tink.io.Source;
 using tink.CoreApi;
+
+
+typedef StaticOptions = {
+	?expiry:Int,
+}
 
 @:require(mime)
 class Static implements MiddlewareObject {
 	var root:String;
 	var prefix:String;
+	var options:StaticOptions;
 	
 	/**
 	 *  @param localFolder - Local folder to serve files, relative to `Sys.programPath()`
 	 *  @param urlPrefix - Match URLs that start with this string, e.g. "/" matches all urls
 	 */
-	public function new(localFolder:String, urlPrefix:String) {
+	public function new(localFolder:String, urlPrefix:String, ?options:StaticOptions) {
 		root = (localFolder.isAbsolute() ? localFolder : (Sys.programPath().directory() + '/$localFolder').normalize()).addTrailingSlash();
 		prefix = switch urlPrefix.charCodeAt(0) {
 			case '/'.code: urlPrefix;
 			default: '/$urlPrefix';
 		}
+		this.options = options;
 	}
 	
 	public function apply(handler:Handler):Handler
-		return new StaticHandler(root, prefix, handler);
+		return new StaticHandler(root, prefix, options, handler);
 }
 
 class StaticHandler implements HandlerObject {
 	var root:String;
 	var prefix:String;
+	var options:StaticOptions;
 	var handler:Handler;
 	var notFound:Error;
 	
-	public function new(root, prefix, handler) {
+	public function new(root, prefix, options, handler) {
 		this.root = root;
 		this.prefix = prefix;
+		this.options = options;
 		this.handler = handler;
 		notFound = new Error(NotFound, 'File Not Found');
 	}
@@ -59,7 +69,6 @@ class StaticHandler implements HandlerObject {
 	public function process(req:IncomingRequest) {
 		var path:String = req.header.url.path;
 		if(req.header.method == GET && path.startsWith(prefix)) {
-			var staticPath = '$root/' + path.substr(prefix.length);
 			var staticPath = Path.join([root, path.substr(prefix.length).urlDecode()]);
 			#if asys
 				var result:Promise<OutgoingResponse> = FileSystem.exists(staticPath)
@@ -95,6 +104,11 @@ class StaticHandler implements HandlerObject {
 			new HeaderField('Content-Type', contentType),
 			new HeaderField('Content-Disposition', 'inline; filename="$filename"'),
 		];
+		
+		if(options != null && options.expiry != null) {
+			headers.push(new HeaderField('Expires', Date.now().delta(options.expiry * 1000)));
+			headers.push(new HeaderField('Cache-Control', 'max-age=${options.expiry}'));
+		}
 		
 		// ref: https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35
 		switch header.byName('range') {

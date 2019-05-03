@@ -78,7 +78,7 @@ abstract CorsProcessor(Proc) from Proc to Proc {
 		
 	public static function regex(ex:EReg, credentials:Bool):CorsProcessor {
 		return function(req:CorsRequest):Future<CorsResponse> {
-			var match = ex.match(req.origin);
+			var match = req.origin != null && ex.match(req.origin);
 			return Future.sync(
 				if(match) {
 					allowOrigin: req.origin,

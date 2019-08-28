@@ -60,8 +60,13 @@ enum LogMessage {
 	HttpOut(key:String, req:IncomingRequestHeader, res:OutgoingResponse, duration:Int);
 }
 
-class LogMessageFormatter {
-	public static function format(message:LogMessage, verbose:Bool) {
+interface Formatter {
+	function format(message:LogMessage, verbose:Bool):String;
+}
+
+class DefaultFormatter implements Formatter {
+	public function new() {}
+	public function format(message:LogMessage, verbose:Bool) {
 		var buf = new StringBuf();
 		inline function addSegment(s:String) {
 			buf.add(s);
@@ -110,10 +115,19 @@ interface Logger {
 
 class DefaultLogger implements Logger {
 	var verbose:Bool;
-	public function new(verbose = false) {
+	var formatter:Formatter;
+	public function new(verbose = false, ?formatter:Formatter) {
 		this.verbose = verbose;
+		this.formatter = formatter == null ? new DefaultFormatter() : formatter;
 	}
 	
 	public function log(message:LogMessage)
-		Sys.println(LogMessageFormatter.format(message, verbose));
+		Sys.println(formatter.format(message, verbose));
 }
+
+#if nodejs
+class ConsoleLogger extends DefaultLogger {
+	override function log(message:LogMessage)
+		js.Node.console.log(formatter.format(message, verbose));
+}
+#end

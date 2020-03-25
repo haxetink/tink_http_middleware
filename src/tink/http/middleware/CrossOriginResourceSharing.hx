@@ -23,6 +23,7 @@ class CrossOriginResourceSharing implements MiddlewareObject {
 	public function apply(handler:Handler):Handler {
 		return function(req:IncomingRequest) {
 			return processor({
+					header: req.header,
 					origin: req.header.byName(ORIGIN).orNull(),
 					requestMethod: req.header.byName(ACCESS_CONTROL_REQUEST_METHOD).orNull(),
 					requestHeaders: req.header.byName(ACCESS_CONTROL_REQUEST_HEADERS).map(function(a:String) return a.split(',').map(StringTools.trim)).orNull(),
@@ -53,6 +54,7 @@ class CrossOriginResourceSharing implements MiddlewareObject {
 }
 
 typedef CorsRequest = {
+	header:IncomingRequestHeader,
 	origin:String,
 	?requestMethod:String,
 	?requestHeaders:Array<String>,

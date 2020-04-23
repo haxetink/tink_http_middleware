@@ -69,8 +69,10 @@ class StaticHandler implements HandlerObject {
 	public function process(req:IncomingRequest) {
 		var path:String = req.header.url.path;
 		if(req.header.method == GET && path.startsWith(prefix)) {
-			var staticPath = Path.join([root, path.substr(prefix.length).urlDecode()]);
-            if (staticPath.indexOf('\x00') > -1) return handler.process(req);  // decline considering anything with null bytes in this middleware
+			var decodedPath = try path.substr(prefix.length).urlDecode()
+							  catch (e:Dynamic) return handler.process(req);  // decline considering invalid urls in this middleware
+			var staticPath = Path.join([root, decodedPath]);
+			if (staticPath.indexOf('\x00') > -1) return handler.process(req);  // decline considering anything with null bytes in this middleware
 			#if asys
 				var result:Promise<OutgoingResponse> = FileSystem.exists(staticPath)
 					.next(function(exists) return if(!exists) notFound else FileSystem.isDirectory(staticPath))

@@ -62,6 +62,19 @@ class StaticTest {
 				});
 			}
 	}
+
+	@:describe('Invalid uris should not be handled by Static middleware')
+	public function testUrisWork() {
+		return new Static(folder, '/').apply(handler).process(req(GET, '/lets-%CREATE%an%invalid_%%%URL%')) >>
+			function(res:OutgoingResponse) {
+				asserts.assert(res.header.statusCode == 200);
+				asserts.assert(!res.header.byName('content-range').isSuccess());
+				return res.body.all().next(function(bytes) {
+					asserts.assert(bytes.toString() == 'GET');
+					return asserts.done();
+				});
+			}
+	}
 	
 	@:describe('Partial contents, both end specified')
 	public function testPartialContent() {

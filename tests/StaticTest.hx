@@ -26,7 +26,6 @@ class StaticTest {
 
 	@:describe('Get an existing file')
 	public function testGet() {
-		trace(folder);
 		return new Static(folder, '/').apply(handler).process(req(GET, '/data/foo.txt')) >>
 			function(res:OutgoingResponse) {
 				asserts.assert(res.header.statusCode == 200);
@@ -40,6 +39,33 @@ class StaticTest {
 	@:describe('Get an nonexistent file')
 	public function testGetNonExistent() {
 		return new Static(folder, '/').apply(handler).process(req(GET, '/data/foo2.txt')) >>
+			function(res:OutgoingResponse) {
+				asserts.assert(res.header.statusCode == 200);
+				asserts.assert(!res.header.byName('content-range').isSuccess());
+				return res.body.all().next(function(bytes) {
+					asserts.assert(bytes.toString() == 'GET');
+					return asserts.done();
+				});
+			}
+	}
+
+	@:describe('Issue 5: uri with null bytes crashing Static middleware')
+	public function testGetUriWithNullBytes() {
+		return new Static(folder, '/').apply(handler).process(req(GET, '/data\x00/foo.txt\x00')) >>
+			function(res:OutgoingResponse) {
+				asserts.assert(res.header.statusCode == 200);
+                // Make sure ./data/foo.txt is not served in this case:
+				asserts.assert(!res.header.byName('content-range').isSuccess());
+				return res.body.all().next(function(bytes) {
+					asserts.assert(bytes.toString() == 'GET');
+					return asserts.done();
+				});
+			}
+	}
+
+	@:describe('Invalid uris should not be handled by Static middleware')
+	public function testUrisWork() {
+		return new Static(folder, '/').apply(handler).process(req(GET, '/lets-%CREATE%an%invalid_%%%URL%')) >>
 			function(res:OutgoingResponse) {
 				asserts.assert(res.header.statusCode == 200);
 				asserts.assert(!res.header.byName('content-range').isSuccess());

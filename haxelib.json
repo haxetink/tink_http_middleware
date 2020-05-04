@@ -12,11 +12,11 @@
     "kevinresol"
   ],
   "description": "Collection of middlewares for tink_http",
-  "releasenote": "initial release",
-  "version": "0.1.0",
+  "releasenote": "Lots of additions and fixes",
+  "version": "0.2.0",
   "dependencies": {
-    "tink_http": "gh:haxetink/tink_http",
-    "mime": "gh:kevinresol/mime",
-    "asys": "gh:benmerckx/asys"
+    "tink_http": "",
+    "mime": "",
+    "asys": ""
   }
 }

@@ -7,7 +7,7 @@ import tink.http.Header;
 import tink.Chunk;
 
 class TestBase {
-	
 	function req(method:Method, url:tink.Url, ?headers:Array<HeaderField>, ?body:Chunk)
-		return new IncomingRequest('ip', new IncomingRequestHeader(method, url, headers), Plain(body == null ? tink.io.Source.EMPTY : body));
+		return new IncomingRequest('ip', new IncomingRequestHeader(method, url, headers),
+			Plain((body : Any /* investigate why this is necessary */) == null ? tink.io.Source.EMPTY : body));
 }

@@ -11,9 +11,10 @@ import tink.unit.Assert.*;
 
 using tink.CoreApi;
 
+@:asserts
 class CorsTest extends TestBase {
 	public function new() {}
-	
+
 	@:variant(~/https:\/\/www\.google\.com/, 'https://www.google.com')
 	@:variant(~/https:\/\/.*.google\.com/, 'https://www.google.com')
 	@:variant(~/https:\/\/.*.google\.com/, 'https://api.google.com')
@@ -21,10 +22,13 @@ class CorsTest extends TestBase {
 		return new CrossOriginResourceSharing(regex).apply(handler)
 			.process(req(OPTIONS, '/', [new HeaderField(ORIGIN, origin)]))
 			.map(function(res):Assertions return switch res.header.byName(ACCESS_CONTROL_ALLOW_ORIGIN) {
-				case Failure(e): fail(e);
-				case Success(o): assert(o == origin);
+				case Failure(e): asserts.fail(e);
+				case Success(o):
+					asserts.assert(o == origin);
+					asserts.done();
 			});
 	}
+
 	@:variant(~/https:\/\/www\.google\.com/, 'https://api.google.com')
 	@:variant(~/https:\/\/.*.google\.com/, 'https://www.facebook.com')
 	@:variant(~/https:\/\/.*.google\.com/, 'https://api.facebook.com')
@@ -33,7 +37,7 @@ class CorsTest extends TestBase {
 			.process(req(OPTIONS, '/', [new HeaderField(ORIGIN, origin)]))
 			.map(function(res) return assert(res.header.byName(ACCESS_CONTROL_ALLOW_ORIGIN).match(Failure(_))));
 	}
-	
+
 	@:variant('https://www.google.com', 'https://www.google.com')
 	@:variant('https://www.google.com', 'https://api.google.com')
 	public function url(url:tink.Url, origin:String) {
@@ -44,8 +48,7 @@ class CorsTest extends TestBase {
 				case Success(o): assert(o == url.toString());
 			});
 	}
-	
-	
+
 	function handler(req:IncomingRequest)
-		return Future.sync(('Done':OutgoingResponse));
+		return Future.sync(('Done' : OutgoingResponse));
 }

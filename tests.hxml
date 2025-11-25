@@ -4,3 +4,5 @@
 -lib mime
 -lib asys
 -lib tink_unittest
+
+-D no-deprecation-warnings

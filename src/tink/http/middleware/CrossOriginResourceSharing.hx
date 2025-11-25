@@ -14,45 +14,42 @@ class CrossOriginResourceSharing implements MiddlewareObject {
 	/**
 	 *   https://en.wikipedia.org/wiki/Cross-origin_resource_sharing#Headers
 	 */
-	var processor:CorsProcessor;
+	final processor:CorsProcessor;
 
 	public function new(processor)
 		this.processor = processor;
 
 	public function apply(handler:Handler):Handler {
-		return function(req:IncomingRequest) {
-			return processor({
-				header: req.header,
-				origin: req.header.byName(ORIGIN).orNull(),
-				requestMethod: req.header.byName(ACCESS_CONTROL_REQUEST_METHOD).orNull(),
-				requestHeaders: req.header.byName(ACCESS_CONTROL_REQUEST_HEADERS).map(function(a:String) return a.split(',').map(StringTools.trim)).orNull(),
-			}).map(function(res) {
-				var headers = [];
-				if (res.allowOrigin != null) {
-					headers.push(new HeaderField(ACCESS_CONTROL_ALLOW_ORIGIN, res.allowOrigin));
-					if (res.allowOrigin != '*')
-						headers.push(new HeaderField(VARY, 'Origin'));
-				}
-				if (res.allowCredentials == true)
-					headers.push(new HeaderField(ACCESS_CONTROL_ALLOW_CREDENTIALS, 'true'));
-				if (res.exposeHeaders != null)
-					headers.push(new HeaderField(ACCESS_CONTROL_EXPOSE_HEADERS, res.exposeHeaders.join(', ')));
-				if (res.maxAge != null)
-					headers.push(new HeaderField(ACCESS_CONTROL_MAX_AGE, Std.string(res.maxAge)));
-				if (res.allowMethods != null)
-					headers.push(new HeaderField(ACCESS_CONTROL_ALLOW_METHODS, res.allowMethods.join(', ')));
-				if (res.allowHeaders != null)
-					headers.push(new HeaderField(ACCESS_CONTROL_ALLOW_HEADERS, res.allowHeaders.join(', ')));
-				return headers;
-			}).flatMap(function(headers) {
-				return switch req.header.method {
-					case OPTIONS:
-						Future.sync(new OutgoingResponse(new ResponseHeader(OK, OK, headers), tink.io.Source.EMPTY));
-					case _:
-						handler.process(req).map(function(res) return new OutgoingResponse(res.header.concat(headers), res.body));
-				}
-			});
-		}
+		return req -> processor({
+			header: req.header,
+			origin: req.header.byName(ORIGIN).orNull(),
+			requestMethod: req.header.byName(ACCESS_CONTROL_REQUEST_METHOD).orNull(),
+			requestHeaders: req.header.byName(ACCESS_CONTROL_REQUEST_HEADERS).map((a:String) -> a.split(',').map(StringTools.trim)).orNull(),
+		}).map(res -> {
+			final headers = [];
+			if (res.allowOrigin != null) {
+				headers.push(new HeaderField(ACCESS_CONTROL_ALLOW_ORIGIN, res.allowOrigin));
+				if (res.allowOrigin != '*')
+					headers.push(new HeaderField(VARY, 'Origin'));
+			}
+			if (res.allowCredentials == true)
+				headers.push(new HeaderField(ACCESS_CONTROL_ALLOW_CREDENTIALS, 'true'));
+			if (res.exposeHeaders != null)
+				headers.push(new HeaderField(ACCESS_CONTROL_EXPOSE_HEADERS, res.exposeHeaders.join(', ')));
+			if (res.maxAge != null)
+				headers.push(new HeaderField(ACCESS_CONTROL_MAX_AGE, Std.string(res.maxAge)));
+			if (res.allowMethods != null)
+				headers.push(new HeaderField(ACCESS_CONTROL_ALLOW_METHODS, res.allowMethods.join(', ')));
+			if (res.allowHeaders != null)
+				headers.push(new HeaderField(ACCESS_CONTROL_ALLOW_HEADERS, res.allowHeaders.join(', ')));
+
+			headers;
+		}).flatMap(headers -> switch req.header.method {
+			case OPTIONS:
+				Future.sync(new OutgoingResponse(new ResponseHeader(OK, OK, headers), tink.io.Source.EMPTY));
+			case _:
+				handler.process(req).map(res -> new OutgoingResponse(res.header.concat(headers), res.body));
+		});
 	}
 }
 
@@ -81,8 +78,8 @@ abstract CorsProcessor(Proc) from Proc to Proc {
 		return regex(ex, false);
 
 	public static function regex(ex:EReg, credentials:Bool):CorsProcessor {
-		return function(req:CorsRequest):Future<CorsResponse> {
-			var match = req.origin != null && ex.match(req.origin);
+		return req -> {
+			final match = req.origin != null && ex.match(req.origin);
 			return Future.sync(if (match) {
 				allowOrigin: req.origin,
 				allowMethods: allMethods(),

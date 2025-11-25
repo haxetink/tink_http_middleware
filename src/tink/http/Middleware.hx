@@ -12,7 +12,7 @@ abstract Middleware(MiddlewareObject) from MiddlewareObject to MiddlewareObject 
 }
 
 class SimpleMiddleware implements MiddlewareObject {
-  var f:MiddlewareFunction;
+  final f:MiddlewareFunction;
   
   public function new(f)
     this.f = f;

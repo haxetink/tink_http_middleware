@@ -24,6 +24,8 @@ using tink.CoreApi;
 
 typedef StaticOptions = {
 	?expiry:Int,
+	/** Decline requests whose canonical file path is outside the configured root. */
+	?restrictToRoot:Bool,
 }
 
 @:require(mime)
@@ -55,6 +57,11 @@ class StaticHandler implements HandlerObject {
 	final options:StaticOptions;
 	final handler:Handler;
 	final notFound:Error;
+	#if asys
+	final restrictedRoot:Promise<String>;
+	#elseif sys
+	final restrictedRoot:String;
+	#end
 
 	public function new(root, prefix, options, handler) {
 		this.root = root;
@@ -62,6 +69,7 @@ class StaticHandler implements HandlerObject {
 		this.options = options;
 		this.handler = handler;
 		notFound = new Error(NotFound, 'File Not Found');
+		restrictedRoot = options != null && options.restrictToRoot == true ? FileSystem.fullPath(root) : root;
 	}
 
 	public function process(req:IncomingRequest) {
@@ -75,19 +83,23 @@ class StaticHandler implements HandlerObject {
 			#if asys
 			final result:Promise<OutgoingResponse> = FileSystem.exists(staticPath)
 				.next(exists -> if (!exists) notFound else FileSystem.isDirectory(staticPath))
-				.next(isDir -> if (isDir) notFound else FileSystem.stat(staticPath))
-				.next(stat -> {
-					final mime = mime.Mime.lookup(staticPath);
-					return partial(req.header, stat, File.readStream(staticPath).idealize(_ -> Source.EMPTY), mime, staticPath.withoutDirectory());
+				.next(isDir -> if (isDir) notFound else restrict(staticPath))
+				.next(path -> {
+					final stat:Promise<FileStat> = FileSystem.stat(path);
+					return stat.next(stat -> {
+						final mime = mime.Mime.lookup(path);
+						return partial(req.header, stat, File.readStream(path).idealize(_ -> Source.EMPTY), mime, path.withoutDirectory());
+					});
 				});
 
 			return result.recover(_ -> handler.process(req));
 			#elseif sys
 			if (FileSystem.exists(staticPath) && !FileSystem.isDirectory(staticPath)) {
-				final mime = mime.Mime.lookup(staticPath);
-				final stat = FileSystem.stat(staticPath);
-				final bytes = File.getBytes(staticPath);
-				return Future.sync(partial(req.header, stat, bytes, mime, staticPath.withoutDirectory()));
+				final path = try restrict(staticPath) catch (_:Dynamic) return handler.process(req);
+				final mime = mime.Mime.lookup(path);
+				final stat = FileSystem.stat(path);
+				final bytes = File.getBytes(path);
+				return Future.sync(partial(req.header, stat, bytes, mime, path.withoutDirectory()));
 			}
 			#else
 			#error "Not supported"
@@ -96,6 +108,29 @@ class StaticHandler implements HandlerObject {
 
 		return handler.process(req);
 	}
+
+	function isWithinRoot(path:String, root:String)
+		return path.normalize().startsWith(root.normalize().addTrailingSlash());
+
+	#if asys
+	function restrict(path:String):Promise<String> {
+		if (options == null || options.restrictToRoot != true)
+			return path;
+		return restrictedRoot.next(root -> {
+			final fullPath:Promise<String> = FileSystem.fullPath(path);
+			return fullPath.next(path -> isWithinRoot(path, root) ? path : notFound);
+		});
+	}
+	#elseif sys
+	function restrict(path:String):String {
+		if (options == null || options.restrictToRoot != true)
+			return path;
+		final path = FileSystem.fullPath(path);
+		if (!isWithinRoot(path, restrictedRoot))
+			throw notFound;
+		return path;
+	}
+	#end
 
 	function partial(header:Header, stat:FileStat, source:IdealSource, contentType:String, filename:String) {
 		final headers = [

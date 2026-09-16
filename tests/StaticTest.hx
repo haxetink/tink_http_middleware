@@ -7,6 +7,9 @@ import tink.http.Header;
 import tink.http.Method;
 import tink.http.middleware.*;
 import tink.unit.Assert.*;
+#if nodejs
+import js.node.Fs;
+#end
 
 using haxe.io.Path;
 using tink.io.Source;
@@ -45,6 +48,91 @@ class StaticTest {
 			});
 		});
 	}
+
+	@:variant('data', '/assets../tests.hxml')
+	@:variant('data', '/assets%2e%2e/tests.hxml')
+	@:variant('data', '/assets..%2ftests.hxml')
+	@:variant('data', '/assets%2e%2e%2ftests.hxml')
+	@:variant('data', '/assets%2E%2E%2Ftests.hxml')
+	@:variant('data', '/assets.%2e%2ftests.hxml')
+	@:variant('data', '/assets%2e.%2ftests.hxml')
+	@:variant('data', '/assets%2e%2e%5ctests.hxml')
+	@:variant('data', '/assets..\\tests.hxml')
+	@:variant('src/tink', '/assets..%2f..%2ftests.hxml')
+	@:variant('src/tink', '/assets%2e%2e%2f%2e%2e%2ftests.hxml')
+	public function testRestrictToRoot(root:String, path:String) {
+		return new Static('$folder/$root', '/assets', {restrictToRoot: true}).apply(handler)
+			.process(req(GET, path)).next(res -> {
+				res.body.all().next(bytes -> {
+					asserts.assert(bytes.toString() == 'GET');
+					asserts.done();
+				});
+			});
+	}
+
+	@:variant('data', '/assets../tests.hxml')
+	@:variant('data', '/assets%2e%2e/tests.hxml')
+	@:variant('data', '/assets..%2ftests.hxml')
+	@:variant('data', '/assets%2e%2e%2ftests.hxml')
+	@:variant('data', '/assets%2E%2E%2Ftests.hxml')
+	@:variant('data', '/assets.%2e%2ftests.hxml')
+	@:variant('data', '/assets%2e.%2ftests.hxml')
+	@:variant('data', '/assets%2e%2e%5ctests.hxml')
+	@:variant('data', '/assets..\\tests.hxml')
+	@:variant('src/tink', '/assets..%2f..%2ftests.hxml')
+	@:variant('src/tink', '/assets%2e%2e%2f%2e%2e%2ftests.hxml')
+	public function testTraversalWithoutRestriction(root:String, path:String) {
+		return new Static('$folder/$root', '/assets').apply(handler)
+			.process(req(GET, path)).next(res -> {
+				res.body.all().next(bytes -> {
+					asserts.assert(bytes.toString() == sys.io.File.getContent('$folder/tests.hxml'));
+					asserts.done();
+				});
+			});
+	}
+
+	@:describe('Serve files inside the configured root when restricted')
+	public function testServeWithinRoot() {
+		return new Static('$folder/data', '/assets', {restrictToRoot: true}).apply(handler)
+			.process(req(GET, '/assets/foo.txt')).next(res -> {
+				res.body.all().next(bytes -> {
+					asserts.assert(bytes.length == 43);
+					asserts.done();
+				});
+			});
+	}
+
+	#if nodejs
+	@:variant('outside.txt', '../tests.hxml', '/assets/outside.txt')
+	@:variant('outside-dir', '..', '/assets/outside-dir/tests.hxml')
+	public function testRestrictSymlinkToRoot(name:String, target:String, path:String) {
+		final link = '$folder/data/$name';
+		Fs.symlinkSync(target, link);
+		return new Static('$folder/data', '/assets', {restrictToRoot: true}).apply(handler)
+			.process(req(GET, path)).next(res -> {
+				res.body.all().next(bytes -> {
+					Fs.unlinkSync(link);
+					asserts.assert(bytes.toString() == 'GET');
+					asserts.done();
+				});
+			});
+	}
+
+	@:variant('outside.txt', '../tests.hxml', '/assets/outside.txt')
+	@:variant('outside-dir', '..', '/assets/outside-dir/tests.hxml')
+	public function testSymlinkWithoutRestriction(name:String, target:String, path:String) {
+		final link = '$folder/data/$name';
+		Fs.symlinkSync(target, link);
+		return new Static('$folder/data', '/assets').apply(handler)
+			.process(req(GET, path)).next(res -> {
+				res.body.all().next(bytes -> {
+					Fs.unlinkSync(link);
+					asserts.assert(bytes.toString() == sys.io.File.getContent('$folder/tests.hxml'));
+					asserts.done();
+				});
+			});
+	}
+	#end
 
 	@:describe('Issue 5: uri with null bytes crashing Static middleware')
 	public function testGetUriWithNullBytes() {
